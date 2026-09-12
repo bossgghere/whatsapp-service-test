@@ -1,0 +1,75 @@
+{
+  "categories": [
+    {
+      "id": "cat_cleaning",
+      "title": "🧹 Home Cleaning",
+      "description": "Deep cleaning & sanitization"
+    },
+    {
+      "id": "cat_maintenance",
+      "title": "🔧 Repairs & Fixes",
+      "description": "Plumbing, electrical & AC"
+    },
+    {
+      "id": "cat_carwash",
+      "title": "🚗 Car Wash",
+      "description": "Doorstep exterior & interior"
+    }
+  ],
+  "items": {
+    "cat_cleaning": [
+      {
+        "id": "srv_deep_clean",
+        "title": "Full Flat Deep Cleaning",
+        "description": "Entire apartment deep sanitization",
+        "price": 1499
+      },
+      {
+        "id": "srv_bathroom_san",
+        "title": "Bathroom Sanitization",
+        "description": "Tile scrubbing & disinfection",
+        "price": 499
+      },
+      {
+        "id": "srv_sofa_shampoo",
+        "title": "Sofa & Carpet Shampoo",
+        "description": "Fabric stain removal & wash",
+        "price": 799
+      }
+    ],
+    "cat_maintenance": [
+      {
+        "id": "srv_electrician",
+        "title": "Electrician Visit",
+        "description": "Diagnostics & basic fitting fix",
+        "price": 199
+      },
+      {
+        "id": "srv_plumber",
+        "title": "Plumbing Repair",
+        "description": "Leak fix & pipe maintenance",
+        "price": 299
+      },
+      {
+        "id": "srv_ac_service",
+        "title": "AC Master Service",
+        "description": "Filter cleaning & gas top-up",
+        "price": 899
+      }
+    ],
+    "cat_carwash": [
+      {
+        "id": "srv_hatchback_wash",
+        "title": "Sedan/Hatchback Wash",
+        "description": "Foam wash & interior vacuum",
+        "price": 399
+      },
+      {
+        "id": "srv_suv_wash",
+        "title": "SUV Premium Wash",
+        "description": "Deep exterior & tyre polish",
+        "price": 499
+      }
+    ]
+  }
+}

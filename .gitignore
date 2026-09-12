@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Environment variables (credentials)
+.env
+
+# SQLite Database
+prototype.db
+prototype.db-wal
+prototype.db-shm
+*.db
+*.sqlite
+
+# Logs
+*.log
+logs/
+
+# System Files
+.DS_Store
