@@ -1,6 +1,7 @@
 const metaClient = require('./meta.client');
 const sessionService = require('./session.service');
 const userService = require('./user.service');
+const orderService = require('./order.service');
 const logger = require('../utils/logger');
 const communitiesData = require('../data/communities.json');
 const servicesData = require('../data/services.json');
@@ -335,7 +336,7 @@ class StateMachineService {
    */
   async _handleOrderConfirmation(to, session, selectedId) {
     if (selectedId === 'btn_confirm') {
-      const order = sessionService.createOrder(to, session);
+      const order = orderService.createOrder(to, session);
 
       const receipt = `🎉 *Order Successfully Placed!*\n\n` +
         `🆔 *Order ID:* ${order.orderId}\n` +

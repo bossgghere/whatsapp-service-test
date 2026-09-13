@@ -23,17 +23,27 @@ const initDatabase = () => {
 
       CREATE TABLE IF NOT EXISTS orders (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
+        order_id TEXT UNIQUE NOT NULL,
         phone TEXT NOT NULL,
         community_id TEXT,
+        community_name TEXT,
+        flat_number TEXT,
         service_id TEXT,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        status TEXT DEFAULT 'CONFIRMED'
+        service_name TEXT,
+        price INTEGER,
+        status TEXT DEFAULT 'CONFIRMED',
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
     `);
 
-    // Safely add columns if updating from earlier schema version
+    // Safely alter columns if updating existing prototype.db
     try { db.exec(`ALTER TABLE users ADD COLUMN name TEXT;`); } catch (e) {}
     try { db.exec(`ALTER TABLE users ADD COLUMN flat_number TEXT;`); } catch (e) {}
+    try { db.exec(`ALTER TABLE orders ADD COLUMN order_id TEXT;`); } catch (e) {}
+    try { db.exec(`ALTER TABLE orders ADD COLUMN community_name TEXT;`); } catch (e) {}
+    try { db.exec(`ALTER TABLE orders ADD COLUMN flat_number TEXT;`); } catch (e) {}
+    try { db.exec(`ALTER TABLE orders ADD COLUMN service_name TEXT;`); } catch (e) {}
+    try { db.exec(`ALTER TABLE orders ADD COLUMN price INTEGER;`); } catch (e) {}
 
     logger.info('DATABASE', `SQLite Database initialized successfully at ${dbPath}`);
   } catch (error) {

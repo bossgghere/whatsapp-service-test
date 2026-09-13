@@ -1,7 +1,7 @@
 const env = require('../config/env');
 const logger = require('../utils/logger');
 const stateMachineService = require('../services/state-machine.service');
-const sessionService = require('../services/session.service');
+const orderService = require('../services/order.service');
 
 class WebhookController {
   /**
@@ -57,13 +57,14 @@ class WebhookController {
 
   /**
    * GET /orders
-   * Debug endpoint to view all placed orders in testing.
+   * View all placed orders saved in SQLite.
    */
   getOrders = (req, res) => {
+    const orders = orderService.getAllOrders();
     return res.status(200).json({
       success: true,
-      count: sessionService.getOrders().length,
-      orders: sessionService.getOrders()
+      count: orders.length,
+      orders: orders
     });
   };
 }
