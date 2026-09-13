@@ -15,7 +15,9 @@ const initDatabase = () => {
       CREATE TABLE IF NOT EXISTS users (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         phone TEXT UNIQUE NOT NULL,
+        name TEXT,
         community_id TEXT,
+        flat_number TEXT,
         updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
       );
 
@@ -28,6 +30,11 @@ const initDatabase = () => {
         status TEXT DEFAULT 'CONFIRMED'
       );
     `);
+
+    // Safely add columns if updating from earlier schema version
+    try { db.exec(`ALTER TABLE users ADD COLUMN name TEXT;`); } catch (e) {}
+    try { db.exec(`ALTER TABLE users ADD COLUMN flat_number TEXT;`); } catch (e) {}
+
     logger.info('DATABASE', `SQLite Database initialized successfully at ${dbPath}`);
   } catch (error) {
     logger.error('DATABASE', 'Failed to initialize SQLite Database:', error);

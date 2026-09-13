@@ -16,22 +16,22 @@ class StateMachineService {
       return;
     }
 
-    const { from, type, text, selectedId, selectedTitle } = msg;
-    logger.info('STATE_MACHINE', `Processing message from ${from}`, { type, text, selectedId, selectedTitle });
+    const { from, profileName, type, text, selectedId, selectedTitle } = msg;
+    logger.info('STATE_MACHINE', `Processing message from ${from}`, { profileName, type, text, selectedId, selectedTitle });
 
     const session = sessionService.getSession(from);
 
     // Global reset trigger
     if (text && ['reset', 'restart', 'cancel', 'menu'].includes(text.toLowerCase().trim())) {
       sessionService.resetSession(from);
-      await this._handleInitialGreeting(from);
+      await this._handleInitialGreeting(from, profileName);
       return;
     }
 
     // State Handler Switch
     switch (session.state) {
       case 'IDLE':
-        await this._handleInitialGreeting(from);
+        await this._handleInitialGreeting(from, profileName);
         break;
 
       case 'CONFIRMING_SAVED_COMMUNITY':
@@ -39,7 +39,11 @@ class StateMachineService {
         break;
 
       case 'SELECTING_COMMUNITY':
-        await this._handleCommunitySelection(from, session, selectedId);
+        await this._handleCommunitySelection(from, session, selectedId, profileName);
+        break;
+
+      case 'ENTERING_FLAT_NUMBER':
+        await this._handleFlatNumberEntry(from, session, text);
         break;
 
       case 'SELECTING_CATEGORY':
@@ -56,7 +60,7 @@ class StateMachineService {
 
       default:
         sessionService.resetSession(from);
-        await this._handleInitialGreeting(from);
+        await this._handleInitialGreeting(from, profileName);
         break;
     }
   }
@@ -73,8 +77,11 @@ class StateMachineService {
 
       if (!message) return null;
 
+      const contact = value?.contacts?.[0];
+
       const normalized = {
         from: message.from,
+        profileName: contact?.profile?.name || '',
         msgId: message.id,
         type: message.type,
         text: message.text?.body || '',
@@ -103,30 +110,43 @@ class StateMachineService {
   /**
    * Handle Initial Greeting (Routes returning user vs new user)
    */
-  async _handleInitialGreeting(from) {
-    const savedCommunityId = userService.getSavedCommunity(from);
+  async _handleInitialGreeting(from, profileName = '') {
+    const user = userService.findByPhone(from);
+    const savedCommunityId = user ? user.community_id : null;
     const savedCommunity = savedCommunityId ? communitiesData.find(c => c.id === savedCommunityId) : null;
+    const flatNumber = user ? user.flat_number : null;
 
-    if (savedCommunity) {
+    if (savedCommunity && flatNumber) {
       sessionService.updateSession(from, {
         state: 'CONFIRMING_SAVED_COMMUNITY',
-        community: savedCommunity
+        community: savedCommunity,
+        flatNumber: flatNumber
       });
 
       const buttons = [
         { id: 'btn_confirm_comm', title: 'Yes, continue' },
-        { id: 'btn_change_comm', title: 'Change community' }
+        { id: 'btn_change_comm', title: 'Change location' }
       ];
 
-      const bodyText = `Welcome back! 👋\n\nYou selected *${savedCommunity.title}* earlier.\n\nContinue with *${savedCommunity.title}*?`;
-      await metaClient.sendReplyButtons(from, bodyText, buttons);
+      const userName = (user && user.name) ? user.name : (profileName || 'there');
+      const bodyText = `Welcome back, *${userName}*! 👋\n\n📍 Saved Location:\n*${savedCommunity.title}*\n🏠 Flat: *${flatNumber}*\n\nContinue with this address?`;
+      await metaClient.sendReplyButtons(from, bodyText, buttons, '🏠 Skippr Services');
+    } else if (savedCommunity) {
+      // Community is saved, but flat number is missing
+      sessionService.updateSession(from, {
+        state: 'ENTERING_FLAT_NUMBER',
+        community: savedCommunity
+      });
+      const userName = (user && user.name) ? user.name : (profileName || 'there');
+      await metaClient.sendText(from, `Welcome back, *${userName}*! 👋\n\n📍 Community: *${savedCommunity.title}*\n\nPlease reply with your *Flat / Door Number* (e.g. A-402 or Villa 12):`);
     } else {
+      // New user
       await this._sendCommunitySelection(from);
     }
   }
 
   /**
-   * Handle Returning User Community Confirmation (Yes, continue / Change community)
+   * Handle Returning User Location Confirmation (Yes, continue / Change location)
    */
   async _handleSavedCommunityConfirmation(to, session, selectedId) {
     if (selectedId === 'btn_confirm_comm') {
@@ -139,18 +159,20 @@ class StateMachineService {
         title: cat.title
       }));
 
-      const bodyText = `📍 Community: *${session.community.title}*\n\nWhat type of service do you need today?`;
+      const bodyText = `📍 Location: *${session.community.title}* (Flat *${session.flatNumber}*)\n\nWhat type of service do you need today?`;
       await metaClient.sendReplyButtons(to, bodyText, buttons, '🛠️ Service Categories');
     } else if (selectedId === 'btn_change_comm') {
       await this._sendCommunitySelection(to);
     } else {
       // Re-send confirmation options if input is unrecognized text
+      const user = userService.findByPhone(to);
+      const userName = (user && user.name) ? user.name : 'there';
       const buttons = [
         { id: 'btn_confirm_comm', title: 'Yes, continue' },
-        { id: 'btn_change_comm', title: 'Change community' }
+        { id: 'btn_change_comm', title: 'Change location' }
       ];
-      const bodyText = `Welcome back! 👋\n\nYou selected *${session.community.title}* earlier.\n\nContinue with *${session.community.title}*?`;
-      await metaClient.sendReplyButtons(to, bodyText, buttons);
+      const bodyText = `Welcome back, *${userName}*! 👋\n\n📍 Saved Location:\n*${session.community.title}*\n🏠 Flat: *${session.flatNumber}*\n\nContinue with this address?`;
+      await metaClient.sendReplyButtons(to, bodyText, buttons, '🏠 Skippr Services');
     }
   }
 
@@ -173,14 +195,14 @@ class StateMachineService {
       }
     ];
 
-    const bodyText = 'Welcome to WhatsApp Services! 👋\n\nPlease select your gated community to browse available services:';
-    await metaClient.sendInteractiveList(to, bodyText, 'View Communities', sections, '🏘️ WhatsApp Services');
+    const bodyText = 'Welcome to Skippr Services! 👋\n\nPlease select your gated community to browse available services:';
+    await metaClient.sendInteractiveList(to, bodyText, 'View Communities', sections, '🏘️ Skippr Services');
   }
 
   /**
    * Handle Community List Selection
    */
-  async _handleCommunitySelection(to, session, selectedId) {
+  async _handleCommunitySelection(to, session, selectedId, profileName = '') {
     const community = communitiesData.find(c => c.id === selectedId);
 
     if (!community) {
@@ -189,20 +211,45 @@ class StateMachineService {
       return;
     }
 
+    // Save selected community and profile name to SQLite
+    const user = userService.saveUserCommunity(to, community.id, profileName);
+
     sessionService.updateSession(to, {
       community,
-      state: 'SELECTING_CATEGORY'
+      state: 'ENTERING_FLAT_NUMBER'
     });
 
-    // Save selected community to SQLite database
-    userService.saveUserCommunity(to, community.id);
+    const userName = (user && user.name) ? user.name : (profileName || '');
+    const nameGreeting = userName ? `Thanks *${userName}*! ` : 'Thanks! ';
+    const promptText = `${nameGreeting}📍 Community: *${community.title}*\n\nPlease reply with your *Flat / Door Number* (e.g. A-402 or Villa 12):`;
+    await metaClient.sendText(to, promptText);
+  }
+
+  /**
+   * Handle Flat / Door Number Entry
+   */
+  async _handleFlatNumberEntry(to, session, text) {
+    const flatNumber = text ? text.trim() : '';
+
+    if (!flatNumber) {
+      await metaClient.sendText(to, 'Please reply with your Flat / Door Number (e.g. A-402 or Villa 12):');
+      return;
+    }
+
+    // Save flat number in SQLite
+    userService.updateFlatNumber(to, flatNumber);
+
+    sessionService.updateSession(to, {
+      flatNumber,
+      state: 'SELECTING_CATEGORY'
+    });
 
     const buttons = servicesData.categories.map(cat => ({
       id: cat.id,
       title: cat.title
     }));
 
-    const bodyText = `📍 Community: *${community.title}*\n\nWhat type of service do you need today?`;
+    const bodyText = `✅ Address saved: *${session.community.title}* (Flat *${flatNumber}*)\n\nWhat type of service do you need today?`;
     await metaClient.sendReplyButtons(to, bodyText, buttons, '🛠️ Service Categories');
   }
 
@@ -263,8 +310,13 @@ class StateMachineService {
       state: 'CONFIRMING_ORDER'
     });
 
+    const user = userService.findByPhone(to);
+    const userName = (user && user.name) ? user.name : 'Resident';
+
     const summaryText = `📝 *Order Confirmation Summary*\n\n` +
+      `👤 *Customer:* ${userName}\n` +
       `🏘️ *Community:* ${session.community.title}\n` +
+      `🏠 *Flat:* ${session.flatNumber || 'N/A'}\n` +
       `🛠️ *Category:* ${session.category.title}\n` +
       `📦 *Service:* ${service.title}\n` +
       `💵 *Price:* ₹${service.price}\n\n` +
@@ -287,11 +339,11 @@ class StateMachineService {
 
       const receipt = `🎉 *Order Successfully Placed!*\n\n` +
         `🆔 *Order ID:* ${order.orderId}\n` +
-        `🏘️ *Community:* ${session.community.title}\n` +
+        `🏘️ *Location:* ${session.community.title} (Flat ${session.flatNumber || 'N/A'})\n` +
         `📦 *Service:* ${session.service.title}\n` +
         `💵 *Amount Payable:* ₹${session.service.price}\n` +
         `⏳ *Status:* Confirmed (Professional assigned)\n\n` +
-        `Thank you for using WhatsApp Services! Type *start* anytime to place another request.`;
+        `Thank you for using Skippr! Type *start* anytime to place another request.`;
 
       await metaClient.sendText(to, receipt);
       sessionService.resetSession(to);

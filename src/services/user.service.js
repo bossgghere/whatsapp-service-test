@@ -21,16 +21,17 @@ class UserService {
    * Create a new user record.
    * @param {string} phone
    * @param {string} [communityId]
+   * @param {string} [name]
    * @returns {object} Created user record
    */
-  createUser(phone, communityId = null) {
+  createUser(phone, communityId = null, name = null) {
     try {
       const stmt = db.prepare(`
-        INSERT INTO users (phone, community_id, updated_at)
-        VALUES (?, ?, CURRENT_TIMESTAMP)
+        INSERT INTO users (phone, name, community_id, updated_at)
+        VALUES (?, ?, ?, CURRENT_TIMESTAMP)
       `);
-      stmt.run(phone, communityId);
-      logger.info('USER_SERVICE', `Created new user for phone ${phone}`, { communityId });
+      stmt.run(phone, name, communityId);
+      logger.info('USER_SERVICE', `Created new user for phone ${phone}`, { name, communityId });
       return this.findByPhone(phone);
     } catch (error) {
       logger.error('USER_SERVICE', `Error creating user for ${phone}:`, error);
@@ -39,23 +40,55 @@ class UserService {
   }
 
   /**
-   * Update an existing user's community_id.
+   * Update an existing user's community_id and optionally name.
    * @param {string} phone
    * @param {string} communityId
+   * @param {string} [name]
    * @returns {object} Updated user record
    */
-  updateCommunity(phone, communityId) {
+  updateCommunity(phone, communityId, name = null) {
     try {
-      const stmt = db.prepare(`
-        UPDATE users
-        SET community_id = ?, updated_at = CURRENT_TIMESTAMP
-        WHERE phone = ?
-      `);
-      stmt.run(communityId, phone);
-      logger.info('USER_SERVICE', `Updated community for phone ${phone}`, { communityId });
+      if (name) {
+        const stmt = db.prepare(`
+          UPDATE users
+          SET community_id = ?, name = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE phone = ?
+        `);
+        stmt.run(communityId, name, phone);
+      } else {
+        const stmt = db.prepare(`
+          UPDATE users
+          SET community_id = ?, updated_at = CURRENT_TIMESTAMP
+          WHERE phone = ?
+        `);
+        stmt.run(communityId, phone);
+      }
+      logger.info('USER_SERVICE', `Updated community for phone ${phone}`, { communityId, name });
       return this.findByPhone(phone);
     } catch (error) {
       logger.error('USER_SERVICE', `Error updating community for ${phone}:`, error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update user's flat/door number.
+   * @param {string} phone
+   * @param {string} flatNumber
+   * @returns {object} Updated user record
+   */
+  updateFlatNumber(phone, flatNumber) {
+    try {
+      const stmt = db.prepare(`
+        UPDATE users
+        SET flat_number = ?, updated_at = CURRENT_TIMESTAMP
+        WHERE phone = ?
+      `);
+      stmt.run(flatNumber, phone);
+      logger.info('USER_SERVICE', `Updated flat number for phone ${phone}: ${flatNumber}`);
+      return this.findByPhone(phone);
+    } catch (error) {
+      logger.error('USER_SERVICE', `Error updating flat number for ${phone}:`, error);
       throw error;
     }
   }
@@ -71,17 +104,18 @@ class UserService {
   }
 
   /**
-   * Save user's community selection (creates user if new, updates if existing).
+   * Save user's community selection and profile name.
    * @param {string} phone
    * @param {string} communityId
+   * @param {string} [name]
    * @returns {object} User record
    */
-  saveUserCommunity(phone, communityId) {
+  saveUserCommunity(phone, communityId, name = null) {
     const existing = this.findByPhone(phone);
     if (existing) {
-      return this.updateCommunity(phone, communityId);
+      return this.updateCommunity(phone, communityId, name);
     } else {
-      return this.createUser(phone, communityId);
+      return this.createUser(phone, communityId, name);
     }
   }
 }
