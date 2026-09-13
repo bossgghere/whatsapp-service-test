@@ -99,6 +99,21 @@ class StateMachineService {
           normalized.selectedId = interactive.button_reply.id;
           normalized.selectedTitle = interactive.button_reply.title;
         }
+      } else if (message.type === 'button') {
+        const button = message.button;
+        normalized.selectedId = button.payload || button.text;
+        normalized.selectedTitle = button.text;
+      } else if (message.type === 'text') {
+        const body = (message.text?.body || '').trim().toLowerCase();
+        if (body === 'yes, continue' || body === 'yes' || body === 'continue') {
+          normalized.selectedId = 'btn_confirm_comm';
+        } else if (body === 'change location' || body === 'change community' || body === 'change') {
+          normalized.selectedId = 'btn_change_comm';
+        } else if (body === 'confirm order' || body === 'confirm' || body === 'yes confirm') {
+          normalized.selectedId = 'btn_confirm';
+        } else if (body === 'cancel' || body === 'cancel order') {
+          normalized.selectedId = 'btn_cancel';
+        }
       }
 
       return normalized;
